@@ -5,8 +5,14 @@ import java.time.LocalDateTime;
 public class Main {
     public static void main(String[] args) {
         Server server = new Server(64);
-        server.addHandler("GET", "/index.html", (request, bos) -> {
-            var filePath = Path.of(".", "public", request.getRequestLine().split(" ")[1]);
+        server.addHandler("GET", "/forms.html", (request, bos) -> {
+            Path filePath;
+            if (!request.getRequestLine().split(" ")[1].contains("?")) {
+                filePath = Path.of(".", "public", request.getRequestLine().split(" ")[1]);
+            } else {
+                filePath = Path.of(".", "public", request.getRequestLine().split(" ")[1]
+                        .substring(0, request.getRequestLine().split(" ")[1].indexOf("?")));
+            }
             var mimeType = Files.probeContentType(filePath);
             var length = Files.size(filePath);
             bos.write((

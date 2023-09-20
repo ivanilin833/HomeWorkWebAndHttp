@@ -41,9 +41,11 @@ public class Server {
                 var client = new Client(serverSocket.accept());
                 Request request = client.getRequest();
                 String[] line = request.getRequestLine().split(" ");
-                //System.out.println(Thread.currentThread().getName() + "\n" + request);
-                var handle = handlers.get(line[0]).getOrDefault(line[1], getErrorHandler());
-                handle.hadle(request, client.getOut());
+                var handle = handlers.get(line[0]).entrySet().stream().filter((k) -> line[1].startsWith(k.getKey()))
+                        .map(Map.Entry::getValue).findFirst();
+                if (handle.isPresent()) {
+                    handle.get().hadle(request, client.getOut());
+                } else getErrorHandler().hadle(request, client.getOut());
                 client.getSocket().close();
             } catch (IOException e) {
                 throw new RuntimeException(e);

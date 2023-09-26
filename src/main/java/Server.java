@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -27,30 +28,31 @@ public class Server {
 
     public void listen(int port) {
         try (var serverSocket = new ServerSocket(port)) {
-            while (true) {
-                executorService.submit(getRunnable(serverSocket));
+            while (!serverSocket.isClosed()) {
+                final var socket = serverSocket.accept();
+                executorService.submit(() -> {
+                    try {
+                        connectingClient(socket);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
         } catch (IOException ex) {
             ex.printStackTrace();
         }
     }
 
-    private Runnable getRunnable(ServerSocket serverSocket) {
-        return () -> {
-            try {
-                var client = new Client(serverSocket.accept());
-                Request request = client.getRequest();
-                String[] line = request.getRequestLine().split(" ");
-                var handle = handlers.get(line[0]).entrySet().stream().filter((k) -> line[1].startsWith(k.getKey()))
-                        .map(Map.Entry::getValue).findFirst();
-                if (handle.isPresent()) {
-                    handle.get().hadle(request, client.getOut());
-                } else getErrorHandler().hadle(request, client.getOut());
-                client.getSocket().close();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        };
+    private void connectingClient(Socket socket) throws IOException {
+        var client = new Client(socket);
+        Request request = client.getRequest();
+        String[] line = request.getRequestLine().split(" ");
+        var handle = handlers.get(line[0]).entrySet().stream().filter((k) -> line[1].startsWith(k.getKey()))
+                .map(Map.Entry::getValue).findFirst();
+        if (handle.isPresent()) {
+            handle.get().hadle(request, client.getOut());
+        } else getErrorHandler().hadle(request, client.getOut());
+        client.getSocket().close();
     }
 
     private Handler getErrorHandler() {

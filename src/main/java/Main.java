@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public class Main {
     public static void main(String[] args) {
         Server server = new Server(64);
+
         server.addHandler("GET", "/forms.html", (request, bos) -> {
             Path filePath;
             if (!request.getRequestLine().split(" ")[1].contains("?")) {

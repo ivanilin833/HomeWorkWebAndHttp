@@ -1,13 +1,13 @@
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server {
     private final ExecutorService executorService;
-    private final Map<String, Map<String, Handler>> handlers = new HashMap<>();
+    private final Map<String, ConcurrentHashMap<String, Handler>> handlers = new ConcurrentHashMap<>();
 
     public Server(int maxPoll) {
         this.executorService = Executors.newFixedThreadPool(maxPoll);
@@ -15,7 +15,7 @@ public class Server {
 
     public void addHandler(String method, String path, Handler handler) {
         if (!handlers.containsKey(method)) {
-            var map = new HashMap<String, Handler>();
+            var map = new ConcurrentHashMap<String, Handler>();
             map.put(path, handler);
             handlers.put(method, map);
         } else {
@@ -41,9 +41,11 @@ public class Server {
                 var client = new Client(serverSocket.accept());
                 Request request = client.getRequest();
                 String[] line = request.getRequestLine().split(" ");
-                //System.out.println(Thread.currentThread().getName() + "\n" + request);
-                var handle = handlers.get(line[0]).getOrDefault(line[1], getErrorHandler());
-                handle.hadle(request, client.getOut());
+                var handle = handlers.get(line[0]).entrySet().stream().filter((k) -> line[1].startsWith(k.getKey()))
+                        .map(Map.Entry::getValue).findFirst();
+                if (handle.isPresent()) {
+                    handle.get().hadle(request, client.getOut());
+                } else getErrorHandler().hadle(request, client.getOut());
                 client.getSocket().close();
             } catch (IOException e) {
                 throw new RuntimeException(e);
